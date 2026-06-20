@@ -49,9 +49,7 @@ export function AppLayout() {
               toggleExpand(nodeId);
             }}
             onNodeHover={(nodeId) => {
-              if (nodeId) {
-                setHighlightedMember(nodeId);
-              }
+              setHighlightedMember(nodeId);
             }}
             onBackgroundClick={() => {
               setSelectedMember(null);

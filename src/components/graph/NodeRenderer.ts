@@ -219,6 +219,49 @@ export class NodeRenderer {
     return text.slice(0, maxLength - 1) + '…';
   }
 
+  updateHighlight(nodes: GraphNode[]): void {
+    if (!this.nodeGroup) return;
+
+    const { nodeRadius, animationDuration } = this.options;
+
+    const nodeSelection = this.nodeGroup
+      .selectAll<SVGGElement, GraphNode>('g.node')
+      .data(nodes, (d) => d.id);
+
+    nodeSelection
+      .select<SVGCircleElement>('circle.node-bg')
+      .transition()
+      .duration(animationDuration)
+      .attr('r', (d) => (d.isHighlighted ? nodeRadius + 3 : nodeRadius))
+      .attr('fill', (d) => this.getNodeColor(d))
+      .attr('stroke', (d) => this.getNodeStroke(d))
+      .attr('stroke-width', (d) => this.getNodeStrokeWidth(d));
+
+    nodeSelection
+      .select<SVGCircleElement>('circle.node-halo')
+      .transition()
+      .duration(animationDuration)
+      .attr('stroke-width', (d) => (d.isHighlighted ? 3 : 0))
+      .attr('opacity', (d) => (d.isHighlighted ? 0.8 : 0));
+
+    nodeSelection
+      .select<SVGCircleElement>('circle.node-expand-indicator')
+      .transition()
+      .duration(animationDuration)
+      .attr('fill', (d) => (d.isExpanded ? '#4ade80' : '#6b7280'));
+
+    nodeSelection
+      .select<SVGTextElement>('text.node-label')
+      .transition()
+      .duration(animationDuration)
+      .style('opacity', (d) => (d.isDimmed ? 0.4 : 1));
+
+    nodeSelection
+      .transition()
+      .duration(animationDuration)
+      .style('opacity', (d) => (d.isDimmed ? 0.3 : 1));
+  }
+
   destroy(): void {
     this.stopHighlightPulse();
     this.nodeGroup?.remove();

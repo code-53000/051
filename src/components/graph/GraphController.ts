@@ -28,6 +28,11 @@ export class GraphController {
   private nodes: GraphNode[] = [];
   private links: GraphLink[] = [];
 
+  private nodeIdsSet: Set<string> = new Set();
+  private linkIdsSet: Set<string> = new Set();
+  private isFirstRender: boolean = true;
+  private interactionsBound: boolean = false;
+
   private eventHandlers: Map<string, GraphEventHandler[]> = new Map();
   private tooltip: d3.Selection<HTMLDivElement, any, any, any> | null = null;
   private isDragging: boolean = false;
@@ -140,6 +145,7 @@ export class GraphController {
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(this.options.nodeRadius * 2))
       .alphaDecay(0.02)
+      .velocityDecay(0.4)
       .on('tick', () => this.tick());
 
     this.simulation.stop();
@@ -154,9 +160,9 @@ export class GraphController {
 
         this.svg?.attr('viewBox', `0 0 ${width} ${height}`);
 
-        if (this.simulation) {
+        if (this.simulation && this.nodes.length > 0) {
           this.simulation.force('center', d3.forceCenter(width / 2, height / 2));
-          this.simulation.alpha(0.3).restart();
+          this.simulation.alpha(0.1).restart();
         }
       }
     });
@@ -164,17 +170,79 @@ export class GraphController {
     resizeObserver.observe(this.container);
   }
 
+  private hasStructureChanged(newNodes: GraphNode[], newLinks: GraphLink[]): boolean {
+    if (this.isFirstRender) return true;
+
+    const newNodeIds = new Set(newNodes.map(n => n.id));
+    const newLinkIds = new Set(newLinks.map(l => l.id));
+
+    if (newNodeIds.size !== this.nodeIdsSet.size) return true;
+    if (newLinkIds.size !== this.linkIdsSet.size) return true;
+
+    for (const id of newNodeIds) {
+      if (!this.nodeIdsSet.has(id)) return true;
+    }
+    for (const id of newLinkIds) {
+      if (!this.linkIdsSet.has(id)) return true;
+    }
+
+    return false;
+  }
+
+  private mergeNodePositions(oldNodes: GraphNode[], newNodes: GraphNode[]): GraphNode[] {
+    const posMap = new Map<string, { x: number; y: number; fx: number | null; fy: number | null }>();
+    oldNodes.forEach(n => {
+      posMap.set(n.id, { x: n.x ?? 0, y: n.y ?? 0, fx: n.fx ?? null, fy: n.fy ?? null });
+    });
+
+    return newNodes.map(n => {
+      const pos = posMap.get(n.id);
+      if (pos) {
+        return {
+          ...n,
+          x: n.x ?? pos.x,
+          y: n.y ?? pos.y,
+          fx: pos.fx,
+          fy: pos.fy,
+        };
+      }
+      return n;
+    });
+  }
+
   render(nodes: GraphNode[], links: GraphLink[]): void {
-    this.nodes = nodes;
-    this.links = links;
+    const structureChanged = this.hasStructureChanged(nodes, links);
 
-    this.linkRenderer?.render(links, nodes);
-    this.nodeRenderer?.render(nodes);
+    if (structureChanged) {
+      const mergedNodes = this.isFirstRender
+        ? nodes
+        : this.mergeNodePositions(this.nodes, nodes);
 
-    this.setupNodeInteractions();
-    this.setupLinkInteractions();
+      this.nodes = mergedNodes;
+      this.links = links;
 
-    this.restartSimulation();
+      this.nodeIdsSet = new Set(nodes.map(n => n.id));
+      this.linkIdsSet = new Set(links.map(l => l.id));
+
+      this.linkRenderer?.render(links, mergedNodes);
+      this.nodeRenderer?.render(mergedNodes);
+
+      if (!this.interactionsBound) {
+        this.setupNodeInteractions();
+        this.setupLinkInteractions();
+        this.interactionsBound = true;
+      }
+
+      if (this.isFirstRender) {
+        this.restartSimulation(0.8);
+        this.isFirstRender = false;
+      } else {
+        this.restartSimulation(0.3);
+      }
+    } else {
+      this.linkRenderer?.render(links, this.nodes);
+      this.nodeRenderer?.updateHighlight(nodes);
+    }
   }
 
   private setupNodeInteractions(): void {
@@ -248,7 +316,6 @@ export class GraphController {
 
     const member = d.member;
     const isDeceased = !!member.deathDate;
-    const generation = this.options.height > 0 ? '' : '';
 
     const content = `
       <div style="font-weight: 600; margin-bottom: 4px; color: #e6b325;">
@@ -283,7 +350,7 @@ export class GraphController {
     this.linkRenderer?.updatePositions(this.links, this.nodes);
   }
 
-  private restartSimulation(): void {
+  private restartSimulation(alpha: number = 0.3): void {
     if (!this.simulation) return;
 
     this.simulation.nodes(this.nodes);
@@ -293,7 +360,7 @@ export class GraphController {
       linkForce.links(this.links);
     }
 
-    this.simulation.alpha(1).restart();
+    this.simulation.alpha(alpha).restart();
   }
 
   zoom(factor: number): void {
