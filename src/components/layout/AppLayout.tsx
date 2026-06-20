@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { FilterBar } from '../ui/FilterBar';
@@ -18,21 +18,8 @@ export function AppLayout() {
   const setSelectedMember = useFamilyStore((s) => s.setSelectedMember);
   const setHighlightedMember = useFamilyStore((s) => s.setHighlightedMember);
   const toggleExpand = useFamilyStore((s) => s.toggleExpand);
-  const buildGraphData = useFamilyStore((s) => s.getGraphData);
-  const engine = useFamilyStore((s) => s.engine);
-  const expandedNodes = useFamilyStore((s) => s.expandedNodes);
-  const highlightedMemberId = useFamilyStore((s) => s.highlightedMemberId);
-  const highlightMode = useFamilyStore((s) => s.highlightMode);
-  const filters = useFamilyStore((s) => s.filters);
-
-  const { nodes, links } = useMemo(() => buildGraphData(), [
-    buildGraphData,
-    engine,
-    expandedNodes,
-    highlightedMemberId,
-    highlightMode,
-    filters,
-  ]);
+  const nodes = useFamilyStore((s) => s.graphNodes);
+  const links = useFamilyStore((s) => s.graphLinks);
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {

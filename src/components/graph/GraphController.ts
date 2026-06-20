@@ -39,15 +39,17 @@ export class GraphController {
 
   constructor(container: HTMLElement, options: GraphControllerOptions = {}) {
     this.container = container;
+    const fallbackWidth = options.width || container.clientWidth || window.innerWidth || 1200;
+    const fallbackHeight = options.height || container.clientHeight || window.innerHeight || 800;
     this.options = {
-      width: container.clientWidth || 800,
-      height: container.clientHeight || 600,
       nodeRadius: 28,
       linkWidth: 2,
       chargeStrength: -400,
       linkDistance: 120,
       animationDuration: 300,
       ...options,
+      width: fallbackWidth,
+      height: fallbackHeight,
     };
     this.init();
   }

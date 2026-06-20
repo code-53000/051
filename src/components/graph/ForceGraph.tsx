@@ -85,23 +85,10 @@ export function ForceGraph({
     };
   }, []);
 
-  const lastNodeIdsRef = useRef<string>('');
-  const lastLinkIdsRef = useRef<string>('');
-
   useEffect(() => {
     if (!controllerRef.current) return;
     if (nodes.length === 0) return;
-
-    const nodeIdsKey = nodes.map(n => n.id).sort().join(',');
-    const linkIdsKey = links.map(l => l.id).sort().join(',');
-
-    if (nodeIdsKey !== lastNodeIdsRef.current || linkIdsKey !== lastLinkIdsRef.current) {
-      lastNodeIdsRef.current = nodeIdsKey;
-      lastLinkIdsRef.current = linkIdsKey;
-      controllerRef.current.render(nodes, links);
-    } else {
-      controllerRef.current.updateHighlight(nodes, links);
-    }
+    controllerRef.current.render(nodes, links);
   }, [nodes, links]);
 
   return (

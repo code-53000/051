@@ -12,6 +12,8 @@ interface FamilyState {
   members: Member[];
   relationships: Relationship[];
   engine: RelationshipEngine;
+  graphNodes: GraphNode[];
+  graphLinks: GraphLink[];
   isLoading: boolean;
   error: string | null;
 
@@ -22,6 +24,8 @@ interface FamilyState {
   filters: FilterOptions;
   showMemberForm: boolean;
   editingMember: Member | null;
+
+  recalculateGraph: () => void;
 
   loadData: () => Promise<void>;
   setSelectedMember: (memberId: string | null) => void;
@@ -47,8 +51,6 @@ interface FamilyState {
   importData: (file: File, merge?: boolean) => Promise<ImportResult>;
   exportData: () => void;
   clearData: () => Promise<void>;
-
-  getGraphData: () => { nodes: GraphNode[]; links: GraphLink[] };
 }
 
 const initialFilters: FilterOptions = {
@@ -61,6 +63,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   members: [],
   relationships: [],
   engine: new RelationshipEngine(),
+  graphNodes: [],
+  graphLinks: [],
   isLoading: false,
   error: null,
 
@@ -71,6 +75,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   filters: initialFilters,
   showMemberForm: false,
   editingMember: null,
+
+  recalculateGraph: () => {
+    const { engine, expandedNodes, highlightedMemberId, highlightMode, filters } = get();
+    const { nodes, links } = engine.buildGraphData(filters, expandedNodes, highlightedMemberId, highlightMode);
+    set({ graphNodes: nodes, graphLinks: links });
+  },
 
   loadData: async () => {
     set({ isLoading: true, error: null });
@@ -91,6 +101,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       });
 
       set({ members, relationships, engine, expandedNodes, isLoading: false });
+      get().recalculateGraph();
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : '加载数据失败',
@@ -105,10 +116,12 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
   setHighlightedMember: (memberId) => {
     set({ highlightedMemberId: memberId });
+    get().recalculateGraph();
   },
 
   setHighlightMode: (mode) => {
     set({ highlightMode: mode });
+    get().recalculateGraph();
   },
 
   toggleExpand: (memberId) => {
@@ -120,15 +133,18 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       newExpanded.add(memberId);
     }
     set({ expandedNodes: newExpanded });
+    get().recalculateGraph();
   },
 
   setFilters: (newFilters) => {
     const { filters } = get();
     set({ filters: { ...filters, ...newFilters } });
+    get().recalculateGraph();
   },
 
   resetFilters: () => {
     set({ filters: initialFilters });
+    get().recalculateGraph();
   },
 
   addMember: async (input) => {
@@ -212,14 +228,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       members: [],
       relationships: [],
       engine: new RelationshipEngine(),
+      graphNodes: [],
+      graphLinks: [],
       selectedMemberId: null,
       highlightedMemberId: null,
       expandedNodes: new Set(),
     });
-  },
-
-  getGraphData: () => {
-    const { engine, expandedNodes, highlightedMemberId, highlightMode, filters } = get();
-    return engine.buildGraphData(filters, expandedNodes, highlightedMemberId, highlightMode);
   },
 }));
