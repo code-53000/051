@@ -262,6 +262,58 @@ export class NodeRenderer {
       .style('opacity', (d) => (d.isDimmed ? 0.3 : 1));
   }
 
+  updateHighlightDirect(nodes: GraphNode[]): void {
+    if (!this.nodeGroup) return;
+
+    const { nodeRadius, animationDuration } = this.options;
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    const nodeEls = this.nodeGroup.node().querySelectorAll<SVGGElement>('g.node');
+
+    nodeEls.forEach((el) => {
+      const oldDatum = d3.select<SVGGElement, GraphNode>(el).datum();
+      const id = oldDatum?.id;
+      if (!id) return;
+      const newNode = nodeMap.get(id);
+      if (!newNode) return;
+
+      d3.select(el).datum(newNode);
+
+      d3.select<SVGGElement, GraphNode>(el)
+        .select<SVGCircleElement>('circle.node-bg')
+        .transition()
+        .duration(animationDuration)
+        .attr('r', newNode.isHighlighted ? nodeRadius + 3 : nodeRadius)
+        .attr('fill', this.getNodeColor(newNode))
+        .attr('stroke', this.getNodeStroke(newNode))
+        .attr('stroke-width', this.getNodeStrokeWidth(newNode));
+
+      d3.select<SVGGElement, GraphNode>(el)
+        .select<SVGCircleElement>('circle.node-halo')
+        .transition()
+        .duration(animationDuration)
+        .attr('stroke-width', newNode.isHighlighted ? 3 : 0)
+        .attr('opacity', newNode.isHighlighted ? 0.8 : 0);
+
+      d3.select<SVGGElement, GraphNode>(el)
+        .select<SVGCircleElement>('circle.node-expand-indicator')
+        .transition()
+        .duration(animationDuration)
+        .attr('fill', newNode.isExpanded ? '#4ade80' : '#6b7280');
+
+      d3.select<SVGGElement, GraphNode>(el)
+        .select<SVGTextElement>('text.node-label')
+        .transition()
+        .duration(animationDuration)
+        .style('opacity', newNode.isDimmed ? 0.4 : 1);
+
+      d3.select<SVGGElement, GraphNode>(el)
+        .transition()
+        .duration(animationDuration)
+        .style('opacity', newNode.isDimmed ? 0.3 : 1);
+    });
+  }
+
   destroy(): void {
     this.stopHighlightPulse();
     this.nodeGroup?.remove();

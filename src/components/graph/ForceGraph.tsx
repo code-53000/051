@@ -24,6 +24,16 @@ export function ForceGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<GraphController | null>(null);
 
+  const onNodeClickRef = useRef(onNodeClick);
+  const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
+  const onNodeHoverRef = useRef(onNodeHover);
+  const onBackgroundClickRef = useRef(onBackgroundClick);
+
+  onNodeClickRef.current = onNodeClick;
+  onNodeDoubleClickRef.current = onNodeDoubleClick;
+  onNodeHoverRef.current = onNodeHover;
+  onBackgroundClickRef.current = onBackgroundClick;
+
   const handleZoomIn = useCallback(() => {
     controllerRef.current?.zoom(1.2);
   }, []);
@@ -49,41 +59,50 @@ export function ForceGraph({
 
     controllerRef.current = controller;
 
-    if (onNodeClick) {
-      controller.on('click', ({ nodeId }) => onNodeClick(nodeId));
-    }
+    controller.on('click', ({ nodeId }) => {
+      onNodeClickRef.current?.(nodeId);
+    });
 
-    if (onNodeDoubleClick) {
-      controller.on('dblclick', ({ nodeId }) => onNodeDoubleClick(nodeId));
-    }
+    controller.on('dblclick', ({ nodeId }) => {
+      onNodeDoubleClickRef.current?.(nodeId);
+    });
 
-    if (onNodeHover) {
-      controller.on('mouseenter', ({ nodeId }) => onNodeHover(nodeId));
-      controller.on('mouseleave', () => onNodeHover(null));
-    }
+    controller.on('mouseenter', ({ nodeId }) => {
+      onNodeHoverRef.current?.(nodeId);
+    });
 
-    if (onBackgroundClick) {
-      controller.on('backgroundClick', () => onBackgroundClick());
-    }
+    controller.on('mouseleave', () => {
+      onNodeHoverRef.current?.(null);
+    });
+
+    controller.on('backgroundClick', () => {
+      onBackgroundClickRef.current?.();
+    });
 
     return () => {
       controller.destroy();
       controllerRef.current = null;
     };
-  }, [onNodeClick, onNodeDoubleClick, onNodeHover, onBackgroundClick]);
+  }, []);
+
+  const lastNodeIdsRef = useRef<string>('');
+  const lastLinkIdsRef = useRef<string>('');
 
   useEffect(() => {
-    if (controllerRef.current && nodes.length > 0) {
+    if (!controllerRef.current) return;
+    if (nodes.length === 0) return;
+
+    const nodeIdsKey = nodes.map(n => n.id).sort().join(',');
+    const linkIdsKey = links.map(l => l.id).sort().join(',');
+
+    if (nodeIdsKey !== lastNodeIdsRef.current || linkIdsKey !== lastLinkIdsRef.current) {
+      lastNodeIdsRef.current = nodeIdsKey;
+      lastLinkIdsRef.current = linkIdsKey;
       controllerRef.current.render(nodes, links);
+    } else {
+      controllerRef.current.updateHighlight(nodes, links);
     }
   }, [nodes, links]);
-
-  useEffect(() => {
-    (window as any).__graphController = controllerRef.current;
-    (window as any).__zoomIn = handleZoomIn;
-    (window as any).__zoomOut = handleZoomOut;
-    (window as any).__resetView = handleResetView;
-  }, [handleZoomIn, handleZoomOut, handleResetView]);
 
   return (
     <div className="relative w-full h-full">

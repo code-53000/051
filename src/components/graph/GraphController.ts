@@ -363,6 +363,11 @@ export class GraphController {
     this.simulation.alpha(alpha).restart();
   }
 
+  updateHighlight(nodes: GraphNode[], links: GraphLink[]): void {
+    this.nodeRenderer?.updateHighlightDirect(nodes);
+    this.linkRenderer?.updateHighlightDirect(links, this.nodes);
+  }
+
   zoom(factor: number): void {
     if (!this.svg || !this.zoomBehavior) return;
 

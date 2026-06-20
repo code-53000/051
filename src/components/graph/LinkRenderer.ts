@@ -223,6 +223,88 @@ export class LinkRenderer {
     return labels[d.type] || '';
   }
 
+  updateHighlightDirect(links: GraphLink[], nodes: GraphNode[]): void {
+    if (!this.linkGroup) return;
+
+    const { linkWidth, highlightedLinkWidth, animationDuration } = this.options;
+    const linkMap = new Map(links.map(l => [l.id, l]));
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    const linkEls = this.linkGroup.node().querySelectorAll<SVGGElement>('g.link');
+
+    linkEls.forEach((el) => {
+      const oldDatum = d3.select<SVGGElement, GraphLink>(el).datum();
+      const id = oldDatum?.id;
+      if (!id) return;
+      const newLink = linkMap.get(id);
+      if (!newLink) return;
+
+      d3.select(el).datum(newLink);
+
+      const bgLine = d3.select<SVGGElement, GraphLink>(el).select<SVGLineElement>('line.link-bg');
+      bgLine
+        .transition()
+        .duration(animationDuration)
+        .attr('stroke', this.getLinkColor(newLink))
+        .attr('stroke-width', newLink.isHighlighted ? highlightedLinkWidth : linkWidth)
+        .attr('stroke-opacity', newLink.isDimmed ? 0.1 : newLink.isHighlighted ? 1 : 0.6);
+
+      d3.select<SVGGElement, GraphLink>(el)
+        .select<SVGTextElement>('text.link-label')
+        .transition()
+        .duration(animationDuration)
+        .style('opacity', newLink.isHighlighted ? 1 : 0);
+
+      d3.select<SVGGElement, GraphLink>(el)
+        .select<SVGPathElement>('path.link-label-bg')
+        .transition()
+        .duration(animationDuration)
+        .style('opacity', newLink.isHighlighted ? 0.9 : 0);
+
+      const sourceId = typeof newLink.source === 'string' ? newLink.source : newLink.source.id;
+      const targetId = typeof newLink.target === 'string' ? newLink.target : newLink.target.id;
+      const source = nodeMap.get(sourceId);
+      const target = nodeMap.get(targetId);
+      if (source && target) {
+        const sx = source.x ?? 0;
+        const sy = source.y ?? 0;
+        const tx = target.x ?? 0;
+        const ty = target.y ?? 0;
+
+        bgLine.attr('x1', sx).attr('y1', sy).attr('x2', tx).attr('y2', ty);
+
+        d3.select<SVGGElement, GraphLink>(el)
+          .select<SVGLineElement>('line.link-hover')
+          .attr('x1', sx).attr('y1', sy).attr('x2', tx).attr('y2', ty);
+
+        if (newLink.isHighlighted) {
+          const midX = (sx + tx) / 2;
+          const midY = (sy + ty) / 2;
+          const labelText = d3.select<SVGGElement, GraphLink>(el)
+            .select<SVGTextElement>('text.link-label')
+            .text();
+          const labelWidth = labelText.length * 12;
+
+          d3.select<SVGGElement, GraphLink>(el)
+            .select<SVGTextElement>('text.link-label')
+            .attr('x', midX)
+            .attr('y', midY - 8);
+
+          d3.select<SVGGElement, GraphLink>(el)
+            .select<SVGPathElement>('path.link-label-bg')
+            .attr(
+              'd',
+              `M${midX - labelWidth / 2 - 6},${midY - 16}
+               h${labelWidth + 12}
+               v16
+               h${-labelWidth - 12}
+               z`
+            );
+        }
+      }
+    });
+  }
+
   destroy(): void {
     this.defs?.remove();
     this.linkGroup?.remove();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { FilterBar } from '../ui/FilterBar';
@@ -12,49 +12,92 @@ export function AppLayout() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [showDataIO, setShowDataIO] = useState(false);
 
-  const {
-    showMemberForm,
-    closeMemberForm,
-    selectedMemberId,
-    setSelectedMember,
-    setHighlightedMember,
-    toggleExpand,
-    getGraphData,
-  } = useFamilyStore();
+  const showMemberForm = useFamilyStore((s) => s.showMemberForm);
+  const closeMemberForm = useFamilyStore((s) => s.closeMemberForm);
+  const selectedMemberId = useFamilyStore((s) => s.selectedMemberId);
+  const setSelectedMember = useFamilyStore((s) => s.setSelectedMember);
+  const setHighlightedMember = useFamilyStore((s) => s.setHighlightedMember);
+  const toggleExpand = useFamilyStore((s) => s.toggleExpand);
+  const buildGraphData = useFamilyStore((s) => s.getGraphData);
+  const engine = useFamilyStore((s) => s.engine);
+  const expandedNodes = useFamilyStore((s) => s.expandedNodes);
+  const highlightedMemberId = useFamilyStore((s) => s.highlightedMemberId);
+  const highlightMode = useFamilyStore((s) => s.highlightMode);
+  const filters = useFamilyStore((s) => s.filters);
 
-  const { nodes, links } = getGraphData();
+  const { nodes, links } = useMemo(() => buildGraphData(), [
+    buildGraphData,
+    engine,
+    expandedNodes,
+    highlightedMemberId,
+    highlightMode,
+    filters,
+  ]);
+
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      setSelectedMember(nodeId);
+      setHighlightedMember(nodeId);
+    },
+    [setSelectedMember, setHighlightedMember]
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (nodeId: string) => {
+      toggleExpand(nodeId);
+    },
+    [toggleExpand]
+  );
+
+  const handleNodeHover = useCallback(
+    (nodeId: string | null) => {
+      setHighlightedMember(nodeId);
+    },
+    [setHighlightedMember]
+  );
+
+  const handleBackgroundClick = useCallback(() => {
+    setSelectedMember(null);
+    setHighlightedMember(null);
+  }, [setSelectedMember, setHighlightedMember]);
+
+  const handleToggleSidebar = useCallback(() => {
+    setShowSidebar((prev) => !prev);
+  }, []);
+
+  const handleOpenDataIO = useCallback(() => {
+    setShowDataIO(true);
+  }, []);
+
+  const handleCloseDataIO = useCallback(() => {
+    setShowDataIO(false);
+  }, []);
+
+  const handleCloseSidebar = useCallback(() => {
+    setShowSidebar(false);
+  }, []);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#1a1a2e] overflow-hidden">
       <Header
         showSidebar={showSidebar}
-        onToggleSidebar={() => setShowSidebar(!showSidebar)}
-        onOpenDataIO={() => setShowDataIO(true)}
+        onToggleSidebar={handleToggleSidebar}
+        onOpenDataIO={handleOpenDataIO}
       />
 
       <FilterBar />
 
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} />
+        <Sidebar isOpen={showSidebar} onClose={handleCloseSidebar} />
 
         <main className="flex-1 relative">
           <ForceGraph
             nodes={nodes}
             links={links}
-            onNodeClick={(nodeId) => {
-              setSelectedMember(nodeId);
-              setHighlightedMember(nodeId);
-            }}
-            onNodeDoubleClick={(nodeId) => {
-              toggleExpand(nodeId);
-            }}
-            onNodeHover={(nodeId) => {
-              setHighlightedMember(nodeId);
-            }}
-            onBackgroundClick={() => {
-              setSelectedMember(null);
-              setHighlightedMember(null);
-            }}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onNodeHover={handleNodeHover}
+            onBackgroundClick={handleBackgroundClick}
           />
 
           {nodes.length === 0 && (
@@ -72,7 +115,7 @@ export function AppLayout() {
       </div>
 
       {showMemberForm && <MemberForm onClose={closeMemberForm} />}
-      {showDataIO && <DataIO onClose={() => setShowDataIO(false)} />}
+      {showDataIO && <DataIO onClose={handleCloseDataIO} />}
     </div>
   );
 }
